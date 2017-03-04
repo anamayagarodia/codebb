@@ -4,10 +4,10 @@ import time
 import math
 
 
-#HOST, PORT = "codebb.cloudapp.net", 17429
-#USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
-HOST, PORT = "localhost", 17429
-USERNAME, PASSWORD = "a", "a"
+HOST, PORT = "codebb.cloudapp.net", 17429
+USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
+#HOST, PORT = "localhost", 17429
+#USERNAME, PASSWORD = "a", "a"
 
 """
 STATUS
@@ -97,6 +97,10 @@ class Player:
     self.data = processed
   def setAccel(self, angle, magnitude):
     self.sendCommand("ACCELERATE " + str(angle) + " " + str(magnitude))
+
+  def setBomb(self, pos, delay):
+    #requires delay: >=20 in frames where 1 frame = 25milsecond
+    self.sendCommand("BOMB " + str(pos[0]) + " " + str(pos[1]) + " " + str(delay))
   
   def waypoint(self, target): #fly through this point exactly. blocks until done.
     print("Waypointing to ", target)
@@ -107,6 +111,14 @@ class Player:
       #self.setAccel(angle(sub(vel, scale(2, perp(diff, vel)))), min(1, math.sqrt(squaredDistance(diff))/50))
       self.setAccel(angle(add(neg(perp(diff, vel)), scale(1/math.sqrt(squaredDistance(diff)),diff))), 1)
 
+  def Bomb(self):
+    vel = p.data["vel"]
+    bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
+    p.setAccel(angle(vel), 1)
+    print('Aye I''m moving')
+    p.setBomb(add(p.data["pos"], bombdist), 20)
+    print('YARRRRR')
+
 try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
     while True:
@@ -114,7 +126,6 @@ try:
       if len(p.data["mines"]) > 0:
         p.waypoint(p.data["mines"][0])
       else:
-        p.setAccel(0.3, 1)
-        print('accelerating')
+        p.Bomb()
 except Exception as e:
   print("Error", str(e))
