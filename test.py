@@ -97,7 +97,7 @@ class Player:
     self.data = processed
   def setAccel(self, angle, magnitude):
     self.sendCommand("ACCELERATE " + str(angle) + " " + str(magnitude))
-
+  
   def setBomb(self, pos, delay):
     #requires delay: >=20 in frames where 1 frame = 25milsecond
     self.sendCommand("BOMB " + str(pos[0]) + " " + str(pos[1]) + " " + str(delay))
@@ -108,16 +108,20 @@ class Player:
         return True
     return False
   
-  def waypoint(self, target): #fly through this point exactly. blocks until done.
+  def shortestVectorTo(self, target):
+    pass#self.
+  
+  def waypoint(self, target): # fly through this point exactly. blocks until done.
+    vecTo = self.shortestVectorTo(target)
     print("Waypointing to ", target)
-    while squaredDistance(self.data["pos"], target) > 25 and not isOurMine(target): # and squaredDistance(self.data["pos"], target) < 500**2:
+    while squaredDistance(self.data["pos"], target) > 25 and not self.isOurMine(target): # and squaredDistance(self.data["pos"], target) < 500**2:
       self.refreshData()
       diff = sub(target, self.data["pos"])
       vel = self.data["vel"]
-      #self.setAccel(angle(sub(vel, scale(2, perp(diff, vel)))), min(1, math.sqrt(squaredDistance(diff))/50))
+      # self.setAccel(angle(sub(vel, scale(2, perp(diff, vel)))), min(1, math.sqrt(squaredDistance(diff))/50))
       self.setAccel(angle(add(neg(perp(diff, vel)), scale(1/math.sqrt(squaredDistance(diff)),diff))), 1)
 
-  def Bomb(self):
+  def bombAccel(self):
     vel = p.data["vel"]
     bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
     p.setAccel(angle(vel), 1)
@@ -127,17 +131,23 @@ class Player:
 
 # toroidal angle to nearest
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
-# remember past points and check them at some point - maybe 10 min left? after it's explored "enough"
+# remember past points and check them at some point - after we hit a set number of "seen" bombs in the set (sortedset based on distance from current?)
 # if waypoint keep going
 # bomb it if people are nearby (or leave a parting bomb)
+# sidescan
+# predictive bomb positioning - for ourselves and for others
+# stop dropping bombs at terminal velocity
 
 try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
+    p.setAccel(0.3, 1)
+    time.sleep(1)
     while True:
       p.refreshData()
+      print(math.sqrt(squaredDistance(p.data["vel"])))
       if len(p.data["mines"]) > 0:
         p.waypoint(p.data["mines"][0])
       else:
-        p.Bomb()
+        p.bombAccel()
 except Exception as e:
   print("Error", str(e))
