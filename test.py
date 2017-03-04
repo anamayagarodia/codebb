@@ -149,11 +149,12 @@ class Player:
     if(distance(vel) == 0):
       p.setAccel(0.3, 1)
     else:
-      bombdist = scale(50/distance(vel),vel)
+      bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
       p.setAccel(angle(vel), 1)
       #print('Aye I''m moving')
-      p.setBomb(add(p.data["pos"], bombdist), 20)
-      #print('YARRRRR')
+      if math.sqrt(squaredDistance(vel)) <= 9.75:
+        p.setBomb(add(p.data["pos"], bombdist), 20)
+        #print('YARRRRR')
 
 # toroidal angle to nearest
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
@@ -163,6 +164,7 @@ class Player:
 # sidescan
 # predictive bomb positioning - for ourselves and for others
 # stop dropping bombs at terminal velocity
+#('Error', "invalid literal for float(): 3750'")
 
 try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
@@ -177,3 +179,4 @@ try:
         p.bombAccel()
 except Exception as e:
   print("Error", str(e))
+
