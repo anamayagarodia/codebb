@@ -68,50 +68,53 @@ class Player:
     self.sock.send((cmd+'\n').encode())
     return self.sock.recv(4096).decode("utf-8")
   def processData(self, response, isStatus = True):
-    arr = response.split(' ')
-    #print(arr)
-    
-    processed = dict()
-    if isStatus:
-      processed["pos"] = (float(arr[1]), float(arr[2]))
-      processed["vel"] = (float(arr[3]), float(arr[4]))
-    else:
-      processed["pos"] = self.data["pos"]
-      processed["vel"] = self.data["vel"]
-    processed["ourmines"] = list()
-    processed["mines"] = list()
-    processed["players"] = list()
-    processed["bombs"] = list()
-    
-    if isStatus:
-      counter = 7
-    else:
-      counter = 3
-    nummines = int(arr[counter])
-    for i in range(nummines): #x, y, owner (ONLY IF NOT OURS)
-      next = (float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i])
-      if arr[counter + 1 + 3*i] != self.USERNAME:
-        processed["mines"].append(next)
-        self.notOurs.add(next[0:2])
+    try:
+      arr = response.split(' ')
+      #print(arr)
+      
+      processed = dict()
+      if isStatus:
+        processed["pos"] = (float(arr[1]), float(arr[2]))
+        processed["vel"] = (float(arr[3]), float(arr[4]))
       else:
-        processed["ourmines"].append(next)
-      self.seen.add(next[0:2])
-    
-    counter += 2 + 3 * nummines
-    numplayers = int(arr[counter])
-    for i in range(numplayers): #x, y, dx, dy
-      processed["players"].append((float(arr[counter + 1 + 4*i]), float(arr[counter + 2 + 4*i]), float(arr[counter + 3 + 4*i]), float(arr[counter + 4 + 4*i])))
-    
-    counter += 2 + 4 * numplayers
-    numbombs = int(arr[counter])
-    for i in range(numbombs): #x, y
-      processed["bombs"].append((float(arr[counter + 1 + 2*i]), float(arr[counter + 2 + 2*i])))
-    
-    processed["mines"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
-    processed["players"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
-    processed["bombs"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
-    
-    return processed
+        processed["pos"] = self.data["pos"]
+        processed["vel"] = self.data["vel"]
+      processed["ourmines"] = list()
+      processed["mines"] = list()
+      processed["players"] = list()
+      processed["bombs"] = list()
+      
+      if isStatus:
+        counter = 7
+      else:
+        counter = 3
+      nummines = int(arr[counter])
+      for i in range(nummines): #x, y, owner (ONLY IF NOT OURS)
+        next = (float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i])
+        if arr[counter + 1 + 3*i] != self.USERNAME:
+          processed["mines"].append(next)
+          self.notOurs.add(next[0:2])
+        else:
+          processed["ourmines"].append(next)
+        self.seen.add(next[0:2])
+      
+      counter += 2 + 3 * nummines
+      numplayers = int(arr[counter])
+      for i in range(numplayers): #x, y, dx, dy
+        processed["players"].append((float(arr[counter + 1 + 4*i]), float(arr[counter + 2 + 4*i]), float(arr[counter + 3 + 4*i]), float(arr[counter + 4 + 4*i])))
+      
+      counter += 2 + 4 * numplayers
+      numbombs = int(arr[counter])
+      for i in range(numbombs): #x, y
+        processed["bombs"].append((float(arr[counter + 1 + 2*i]), float(arr[counter + 2 + 2*i])))
+      
+      processed["mines"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
+      processed["players"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
+      processed["bombs"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
+      
+      return processed
+    except:
+      return None
   def refreshData(self):
     response = self.sendCommand('STATUS')
     self.data = self.processData(response)
@@ -157,6 +160,7 @@ class Player:
   
   def waypoint(self, target, callback = None): # fly through this point exactly. blocks until done.
     vecTo = self.shortestVectorTo(target)
+    self.seen.add(target[0:2])
     print("Waypointing to ", target, " which is at angle ", angle(vecTo), " from me")
     while distance(vecTo) > self.config["CAPTURERADIUS"] and not self.isOurMine(target):
       self.refreshData()
@@ -168,9 +172,12 @@ class Player:
       #    if index > 0 and not self.isOurMine(mine):
       #      self.toVisit.add(mine)
       #      self.seen.add(mine)
+      for mine in self.notOurs:
+        if distance(self.shortestVectorTo(mine)) * 1.5 < distance(vecTo): #if it's more than 1.5 times further than a nearer one, cancel.
+          print("canceling waypoint")
+          return
       if callback is not None:
         callback()
-    self.seen.add(target[0:2])
     self.notOurs.discard(target[0:2])
   
   def scanRandom(self):
@@ -199,7 +206,7 @@ class Player:
       self.scanRandom()
   
   def scanNextMine(self):
-    if random.randint(0,1) == 0:
+    if random.random() < len(self.seen)/35.0:
       self.scanXY(random.choice(tuple(self.seen)))
     else:
       self.scanRandom()
@@ -224,6 +231,7 @@ class Player:
 # scanning needs to be weighted to be more likely for more nearby
 # bombs
 # gradually decrease the scanNextMine probability of random one
+# recovery - cache in file
 
 # toroidal is broken
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
@@ -235,30 +243,31 @@ class Player:
 # stop dropping bombs at terminal velocity
 #('Error', "invalid literal for float(): 3750'")
 
-try:
-  with Player(HOST, PORT, USERNAME, PASSWORD) as p:
-    p.setAccel(0.3, 1)
-    time.sleep(1)
-    while len(p.seen) < 10:
-      p.refreshData()
-      #print(math.sqrt(squaredDistance(p.data["vel"])))
-      if len(p.data["mines"]) > 0:
-        p.waypoint(p.data["mines"][0], p.scanRandom)
-        #for index, mine in enumerate(p.data["mines"]):
-        #  if index < (len(p.data["mines"]) - 1):
-        #    p.toVisit.add(mine)
-        #  else:
-        #    p.waypoint(mine)
-        #for mine in p.toVisit:
-        #  p.waypoint(mine)
-        #p.toVisit = set()
-      else:
-        p.explore()
-    while True:
-      p.waypointToNearest()
-except Exception as e:
-  print("Error", str(e))
-  traceback.print_exc()
+while True:
+  try:
+    with Player(HOST, PORT, USERNAME, PASSWORD) as p:
+      p.setAccel(0.3, 1)
+      time.sleep(1)
+      while len(p.seen) < 10:
+        p.refreshData()
+        #print(math.sqrt(squaredDistance(p.data["vel"])))
+        if len(p.data["mines"]) > 0:
+          p.waypoint(p.data["mines"][0], p.scanRandom)
+          #for index, mine in enumerate(p.data["mines"]):
+          #  if index < (len(p.data["mines"]) - 1):
+          #    p.toVisit.add(mine)
+          #  else:
+          #    p.waypoint(mine)
+          #for mine in p.toVisit:
+          #  p.waypoint(mine)
+          #p.toVisit = set()
+        else:
+          p.explore()
+      while True:
+        p.waypointToNearest()
+  except Exception as e:
+    print("Error", str(e))
+    traceback.print_exc()
 
 #('Error', "invalid literal for float(): -13.08585358'")
 #('Error', "could not convert string to float: '")
