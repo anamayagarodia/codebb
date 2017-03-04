@@ -44,6 +44,7 @@ def norm(vec):
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
+    self.toVisit = set()
     self.visited = set()
     self.data = None
     self.rawData = None
@@ -145,6 +146,11 @@ class Player:
       vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
       self.setAccel(angle(add(neg(perp(vecTo, vel)), scale(1/distance(vecTo),vecTo))), 1)
+      if self.data["mines"] > 1:
+        for index, mine in enumerate(self.data["mines"]):
+          if index > 0 and not self.isOurMine(mine):
+            self.toVisit.add(mine)
+            self.visited.add(mine)
     self.visited.add(target)
   
   def bombAccel(self):
@@ -186,9 +192,23 @@ try:
       p.refreshData()
       print(math.sqrt(squaredDistance(p.data["vel"])))
       if len(p.data["mines"]) > 0:
-        p.waypoint(p.data["mines"][0])
+        for index, mine in enumerate(p.data["mines"]):
+          if index < (len(p.data["mines"]) - 1):
+            p.toVisit.add(mine)
+          else:
+            p.waypoint(mine)
+        for mine in p.toVisit:
+          p.waypoint(mine)
+        p.toVisit = set()
       else:
         p.bombAccel()
 except Exception as e:
   print("Error", str(e))
 
+#('Error', "invalid literal for float(): -13.08585358'")
+#('Error', "could not convert string to float: '")
+#('Error', "invalid literal for int() with base 10: '1.8850081045206708E-125'"
+#('Error', 'could not convert string to float: Unable')
+#('Error', "invalid literal for int() with base 10: '2940.086815219818'")
+#('Error', 'could not convert string to float: Unable')
+#('Error', 'could not convert string to float: Unable')
