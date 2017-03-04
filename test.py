@@ -172,7 +172,8 @@ class Player:
       self.setAccel(angle(vel), 1)
       
       bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
-      self.setBomb(add(self.data["pos"], bombdist), 20)
+      if math.sqrt(squaredDistance(vel)) <= 9.75:
+        self.setBomb(add(self.data["pos"], bombdist), 20)
       
       scanCoords = add(scale(200, norm(self.data["vel"])), self.data["pos"])
       scanResults = self.scanXY(scanCoords)
