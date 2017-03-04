@@ -208,7 +208,7 @@ class Player:
 
       bombdisp = scale((self.config["BOMBPLACERADIUS"])/math.sqrt(squaredDistance(vel)),vel)
       if len(self.data["mines"]) == 0:
-        self.setBomb(add(self.data["pos"], bombdisp), 20)
+        self.setBomb(add(self.data["pos"], bombdisp), 30)
 
       self.scanRandom()
   
@@ -223,12 +223,12 @@ class Player:
   
   def waypointToNearest(self):
     if len(self.notOurs) > 0:
-      target = min(self.notOurs.keys(), key=lambda mine: squaredDistance(mine, self.data["pos"]) * (0.5 if self.notOurs[mine]=='exodia' else 1))
-      if distance(target, self.data["pos"]) > 2000:
+      target = min(self.notOurs.keys(), key=lambda mine: squaredDistance(mine, self.data["pos"]) * (0.1 if self.notOurs[mine]=='exodia' else 1))
+      if distance(target, self.data["pos"]) > 1500:
         diff = sub(target, self.data["pos"])
         bombdisp = scale((self.config["BOMBPLACERADIUS"])/math.sqrt(squaredDistance(diff)),diff)
         if len(self.data["mines"]) == 0:
-          self.setBomb(add(self.data["pos"], bombdisp), 20)
+          self.setBomb(add(self.data["pos"], bombdisp), 30)
       self.waypoint(target, self.scanNextMine)
     else:
       self.explore()
@@ -263,7 +263,7 @@ while True:
     with Player(HOST, PORT, USERNAME, PASSWORD) as p:
       p.setAccel(0.3, 1)
       time.sleep(1)
-      while len(p.seen) < 10:
+      while len(p.seen) < 7:
         p.refreshData()
         #print(math.sqrt(squaredDistance(p.data["vel"])))
         if len(p.data["mines"]) > 0:
