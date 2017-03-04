@@ -126,8 +126,9 @@ class Player:
     bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
     p.setAccel(angle(vel), 1)
     print('Aye I''m moving')
-    p.setBomb(add(p.data["pos"], bombdist), 20)
-    print('YARRRRR')
+    if math.sqrt(squaredDistance(vel)) <= 9.75:
+      p.setBomb(add(p.data["pos"], bombdist), 20)
+      print('YARRRRR')
 
 # toroidal angle to nearest
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
@@ -151,3 +152,5 @@ try:
         p.bombAccel()
 except Exception as e:
   print("Error", str(e))
+
+"""('Error', "invalid literal for float(): 3750'")"""
