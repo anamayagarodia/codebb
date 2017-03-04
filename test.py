@@ -158,8 +158,9 @@ class Player:
       print('Aye I''m moving')
       self.forwardScan()
       print('I''m Scannin'' Cap''n')
-      p.setBomb(add(p.data["pos"], bombdist), 20)
-      print('YARRRRR')
+      if math.sqrt(squaredDistance(vel)) <= 9.75:
+        p.setBomb(add(p.data["pos"], bombdist), 20)
+        print('YARRRRR')
 
   def forwardScan(self):
     vel = p.data["vel"]
