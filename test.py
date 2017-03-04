@@ -218,6 +218,13 @@ class Player:
     # Greedily waypoint to the nearest mine that isn't ours.
     # Of course, exploration is still occurring, but we're just not prioritizing it.
 
+# to improve: waypoint cannot change if there's a much closer candidate
+  # have some other heuristics like current velocity direction
+  # and more prioritous enemies (higher rank)
+# scanning needs to be weighted to be more likely for more nearby
+# bombs
+# gradually decrease the scanNextMine probability of random one
+
 # toroidal is broken
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
 # remember past points and check them at some point - after we hit a set number of "seen" bombs in the set (sortedset based on distance from current?)
