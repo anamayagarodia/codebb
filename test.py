@@ -5,10 +5,10 @@ import math
 import traceback
 
 
-HOST, PORT = "codebb.cloudapp.net", 17429
-USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
-#HOST, PORT = "localhost", 17429
-#USERNAME, PASSWORD = "a", "a"
+#HOST, PORT = "codebb.cloudapp.net", 17429
+#USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
+HOST, PORT = "localhost", 17429
+USERNAME, PASSWORD = "a", "a"
 
 """
 STATUS
@@ -45,6 +45,7 @@ def norm(vec):
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
+    self.toVisit = set()
     self.seen = set()
     self.notOurs = set()
     self.data = None
@@ -163,10 +164,15 @@ class Player:
       vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
       self.setAccel(angle(add(neg(perp(vecTo, vel)), scale(1/distance(vecTo),vecTo))), 1)
+      if self.data["mines"] > 1:
+        for index, mine in enumerate(self.data["mines"]):
+          if index > 0 and not self.isOurMine(mine):
+            self.toVisit.add(mine)
+            self.seen.add(mine)
       if callback is not None:
         callback()
     self.seen.add(target)
-  
+    
   def explore(self):
     vel = self.data["vel"]
     
@@ -220,9 +226,15 @@ try:
     while True:
       p.refreshData()
       print(math.sqrt(squaredDistance(p.data["vel"])))
-      
       if len(p.data["mines"]) > 0:
-        p.waypoint(p.data["mines"][0])
+        for index, mine in enumerate(p.data["mines"]):
+          if index < (len(p.data["mines"]) - 1):
+            p.toVisit.add(mine)
+          else:
+            p.waypoint(mine)
+        for mine in p.toVisit:
+          p.waypoint(mine)
+        p.toVisit = set()
       else:
         p.explore()
       print(len(p.seen))
@@ -232,3 +244,10 @@ except Exception as e:
   print("Error", str(e))
   traceback.print_exc()
 
+#('Error', "invalid literal for float(): -13.08585358'")
+#('Error', "could not convert string to float: '")
+#('Error', "invalid literal for int() with base 10: '1.8850081045206708E-125'"
+#('Error', 'could not convert string to float: Unable')
+#('Error', "invalid literal for int() with base 10: '2940.086815219818'")
+#('Error', 'could not convert string to float: Unable')
+#('Error', 'could not convert string to float: Unable')
