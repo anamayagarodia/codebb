@@ -10,6 +10,8 @@ USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
 #HOST, PORT = "localhost", 17429
 #USERNAME, PASSWORD = "a", "a"
 
+seen_backup = set()
+
 """
 STATUS
 ACCELERATE ANGLE THRUST
@@ -46,7 +48,7 @@ def norm(vec):
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
     self.stack = set()
-    self.seen = set()
+    self.seen = seen_backup
     self.notOurs = dict()
     self.data = None
     
@@ -111,6 +113,9 @@ class Player:
       processed["mines"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
       processed["players"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
       processed["bombs"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
+      
+      global seen_backup
+      seen_backup = self.seen
       
       return processed
     except:
