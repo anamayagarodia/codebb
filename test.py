@@ -191,11 +191,11 @@ class Player:
       self.setAccel(0.3, 1)
     else:
       self.setAccel(angle(vel), 1)
-      
+
       bombdisp = scale((self.config["BOMBPLACERADIUS"])/math.sqrt(squaredDistance(vel)),vel)
       if len(self.data["mines"]) == 0:
         self.setBomb(add(self.data["pos"], bombdisp), 20)
-      
+
       self.scanRandom()
   
   def scanNextMine(self):
@@ -205,6 +205,10 @@ class Player:
       self.scanRandom()
   
   def waypointToNearest(self):
+    vel = self.data["vel"]
+    bombdisp = scale((self.config["BOMBPLACERADIUS"])/math.sqrt(squaredDistance(vel)),vel)
+    if len(self.data["mines"]) == 0:
+      self.setBomb(add(self.data["pos"], bombdisp), 20)
     if len(self.notOurs) > 0:
       self.waypoint(min(self.notOurs, key=lambda mine: squaredDistance(mine, self.data["pos"])), self.scanNextMine)
     else:
