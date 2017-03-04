@@ -62,27 +62,36 @@ class Player:
   def sendCommand(self, str):
     self.sock.send((str+'\n').encode())
     return repr(self.sock.recv(4096))
-  def refreshData(self):
-    data = self.sendCommand('STATUS')
-    arr = data.split(' ')
+  def processData(self, response, isStatus = True):
+    arr = response.split(' ')
+    print(arr)
     
     self.rawData = arr
     
     processed = dict()
-    processed["pos"] = (float(arr[1]), float(arr[2]))
-    processed["vel"] = (float(arr[3]), float(arr[4]))
+    if isStatus:
+      processed["pos"] = (float(arr[1]), float(arr[2]))
+      processed["vel"] = (float(arr[3]), float(arr[4]))
+    else:
+      processed["pos"] = self.data["pos"]
+      processed["vel"] = self.data["vel"]
     processed["ourmines"] = list()
     processed["mines"] = list()
     processed["players"] = list()
     processed["bombs"] = list()
     
-    counter = 7
+    if isStatus:
+      counter = 7
+    else:
+      counter = 3
     nummines = int(arr[counter])
     for i in range(nummines): #x, y, owner (ONLY IF NOT OURS)
+      next = (float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i])
       if arr[counter + 1 + 3*i] != self.USERNAME:
-        processed["mines"].append((float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i]))
+        processed["mines"].append(next)
       else:
-        processed["ourmines"].append((float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i]))
+        processed["ourmines"].append(next)
+      self.visited.add(next)
     
     counter += 2 + 3 * nummines
     numplayers = int(arr[counter])
@@ -98,7 +107,10 @@ class Player:
     processed["players"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
     processed["bombs"].sort(key = lambda x: squaredDistance(x, processed["pos"]))
     
-    self.data = processed
+    return processed
+  def refreshData(self):
+    response = self.sendCommand('STATUS')
+    self.data = self.processData(response)
   def setAccel(self, angle, magnitude):
     self.sendCommand("ACCELERATE " + str(angle) + " " + str(magnitude))
   
@@ -107,7 +119,11 @@ class Player:
     self.sendCommand("BOMB " + str(pos[0]) + " " + str(pos[1]) + " " + str(delay))
 
   def scanXY(self, pos):
-    self.sendCommand("SCAN " + str(pos[0]) + " " + str(pos[1]))
+    response = self.sendCommand("SCAN " + str(pos[0]) + " " + str(pos[1]))
+    if response.find("ERROR") == -1:
+      return self.processData(response, False)
+    else:
+      return None
   
   def isOurMine(self, minepos):
     for mine in self.data["ourmines"]:
@@ -148,26 +164,27 @@ class Player:
     self.visited.add(target)
   
   def bombAccel(self):
-    vel = p.data["vel"]
-
+    vel = self.data["vel"]
+    
     if(distance(vel) == 0):
-      p.setAccel(0.3, 1)
+      self.setAccel(0.3, 1)
     else:
+      self.setAccel(angle(vel), 1)
+      
       bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
-      p.setAccel(angle(vel), 1)
-      print('Aye I''m moving')
-      self.forwardScan()
-      print('I''m Scannin'' Cap''n')
-      p.setBomb(add(p.data["pos"], bombdist), 20)
-      print('YARRRRR')
+      self.setBomb(add(self.data["pos"], bombdist), 20)
+      
+      scanCoords = add(scale(200, norm(self.data["vel"])), self.data["pos"])
+      scanResults = self.scanXY(scanCoords)
+      if scanResults != None and len(scanResults["mines"]) > 0:
+        self.waypoint(scanResults["mines"][0])
 
-  def forwardScan(self):
-    vel = p.data["vel"]
-    normVel = norm(vel)
-    scanCoords = add(scale(200,normVel),p.data["pos"])
-    p.scanXY(scanCoords)
+# So memory.
+  # We are going to explore the map in an optimal way (with motion and with scans).
+    # The goal is to find 75% of the existing mines.
+  # Once this occurs, we switch to a strategy of circulation
+    # Waypointing each mine in sequence, something something TSP.
 
-# toroidal angle to nearest
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
 # remember past points and check them at some point - after we hit a set number of "seen" bombs in the set (sortedset based on distance from current?)
 # if waypoint keep going
