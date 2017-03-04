@@ -174,7 +174,7 @@ class Player:
       bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
       if math.sqrt(squaredDistance(vel)) <= 9.75:
         self.setBomb(add(self.data["pos"], bombdist), 20)
-      
+        
       scanCoords = add(scale(200, norm(self.data["vel"])), self.data["pos"])
       scanResults = self.scanXY(scanCoords)
       if scanResults != None and len(scanResults["mines"]) > 0:
@@ -183,8 +183,10 @@ class Player:
 # So memory.
   # We are going to explore the map in an optimal way (with motion and with scans).
     # The goal is to find 75% of the existing mines.
-  # Once this occurs, we switch to a strategy of circulation
-    # Waypointing each mine in sequence, something something TSP.
+  # Once this occurs, we switch to a strategy of circulation.
+    # Scan each known location (in continuous linear sequence) to figure out if the mine is still ours. Add to a list if not.
+    # Greedily waypoint to the nearest mine that isn't ours.
+    # Of course, exploration is still occurring, but we're just not prioritizing it.
 
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
 # remember past points and check them at some point - after we hit a set number of "seen" bombs in the set (sortedset based on distance from current?)
@@ -202,6 +204,7 @@ try:
     while True:
       p.refreshData()
       print(math.sqrt(squaredDistance(p.data["vel"])))
+      
       if len(p.data["mines"]) > 0:
         p.waypoint(p.data["mines"][0])
       else:
