@@ -18,7 +18,8 @@ SCAN X Y
 SCOREBOARD
 CONFIGURATIONS
 """
-
+def distance(pos1, pos2 = (0,0)):
+  return math.sqrt(squaredDistance(pos1, pos2))
 def squaredDistance(pos1, pos2 = (0,0)):
   return (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
 def neg(pos):
@@ -38,9 +39,12 @@ def perp(a, b):
   return sub(b, proj(a, b))
 def angle(pos):
   return math.atan2(pos[1], pos[0])
+def norm(vec):
+  return scale(1/distance(vec), vec)
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
+    self.visited = set()
     self.data = None
     self.rawData = None
     self.HOST = HOST
@@ -109,25 +113,47 @@ class Player:
     return False
   
   def shortestVectorTo(self, target):
-    pass#self.
+    vec = sub(target, self.data["pos"])
+    minLen = squaredDistance(vec)
+    minVec = vec
+    
+    vec = sub(target, sub(self.data["pos"],(10000,0)))
+    if squaredDistance(vec) < minLen:
+      minLen = squaredDistance(vec)
+      minVec = vec
+    
+    vec = sub(target, sub(self.data["pos"],(0,10000)))
+    if squaredDistance(vec) < minLen:
+      minLen = squaredDistance(vec)
+      minVec = vec
+    
+    vec = sub(target, sub(self.data["pos"],(10000,10000)))
+    if squaredDistance(vec) < minLen:
+      minLen = squaredDistance(vec)
+      minVec = vec
+    
+    return minVec
   
   def waypoint(self, target): # fly through this point exactly. blocks until done.
     vecTo = self.shortestVectorTo(target)
-    print("Waypointing to ", target)
-    while squaredDistance(self.data["pos"], target) > 25 and not self.isOurMine(target): # and squaredDistance(self.data["pos"], target) < 500**2:
+    print("Waypointing to ", target, " which is at angle ", angle(vecTo), " from me")
+    while squaredDistance(vecTo) > 25 and not self.isOurMine(target):
       self.refreshData()
-      diff = sub(target, self.data["pos"])
+      vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
-      # self.setAccel(angle(sub(vel, scale(2, perp(diff, vel)))), min(1, math.sqrt(squaredDistance(diff))/50))
-      self.setAccel(angle(add(neg(perp(diff, vel)), scale(1/math.sqrt(squaredDistance(diff)),diff))), 1)
-
+      self.setAccel(angle(add(neg(perp(vecTo, vel)), scale(1/distance(vecTo),vecTo))), 1)
+    self.visited.add(target)
+  
   def bombAccel(self):
     vel = p.data["vel"]
-    bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
-    p.setAccel(angle(vel), 1)
-    print('Aye I''m moving')
-    p.setBomb(add(p.data["pos"], bombdist), 20)
-    print('YARRRRR')
+    if(distance(vel) == 0):
+      p.setAccel(0.3, 1)
+    else:
+      bombdist = scale(50/distance(vel),vel)
+      p.setAccel(angle(vel), 1)
+      #print('Aye I''m moving')
+      p.setBomb(add(p.data["pos"], bombdist), 20)
+      #print('YARRRRR')
 
 # toroidal angle to nearest
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
