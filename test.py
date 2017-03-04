@@ -38,6 +38,8 @@ def perp(a, b):
   return sub(b, proj(a, b))
 def angle(pos):
   return math.atan2(pos[1], pos[0])
+def norm(vec):
+  return scale(1/distance(vec), vec)
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
@@ -101,6 +103,9 @@ class Player:
   def setBomb(self, pos, delay):
     #requires delay: >=20 in frames where 1 frame = 25milsecond
     self.sendCommand("BOMB " + str(pos[0]) + " " + str(pos[1]) + " " + str(delay))
+
+  def scanXY(self, pos):
+    self.sendCommand("SCAN " + str(pos[0]) + " " + str(pos[1]))
   
   def isOurMine(self, minepos):
     for mine in self.data["ourmines"]:
@@ -126,8 +131,16 @@ class Player:
     bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
     p.setAccel(angle(vel), 1)
     print('Aye I''m moving')
+    self.forwardScan()
+    print('I''m Scannin'' Cap''n')
     p.setBomb(add(p.data["pos"], bombdist), 20)
     print('YARRRRR')
+
+  def forwardScan(self):
+    vel = p.data["vel"]
+    normVel = norm(vel)
+    scanCoords = add(scale(200,normVel),p.data["pos"])
+    p.scanXY(scanCoords)
 
 # toroidal angle to nearest
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
