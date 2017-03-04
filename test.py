@@ -50,7 +50,7 @@ class Player:
   def __enter__(self):
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.connect((self.HOST, self.PORT))
-    self.sendCommand(self.USERNAME + ' ' + self.PASSWORD)
+    self.sock.send((self.USERNAME + ' ' + self.PASSWORD+'\n').encode())
     print('hi')
     return self
   def __exit__(self, exc_type, exc_value, traceback):
@@ -67,6 +67,7 @@ class Player:
     processed = dict()
     processed["pos"] = (float(arr[1]), float(arr[2]))
     processed["vel"] = (float(arr[3]), float(arr[4]))
+    processed["ourmines"] = list()
     processed["mines"] = list()
     processed["players"] = list()
     processed["bombs"] = list()
@@ -76,6 +77,8 @@ class Player:
     for i in range(nummines): #x, y, owner (ONLY IF NOT OURS)
       if arr[counter + 1 + 3*i] != self.USERNAME:
         processed["mines"].append((float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i]))
+      else:
+        processed["ourmines"].append((float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i]))
     
     counter += 2 + 3 * nummines
     numplayers = int(arr[counter])
@@ -97,20 +100,21 @@ class Player:
   
   def waypoint(self, target): #fly through this point exactly. blocks until done.
     print("Waypointing to ", target)
-    p.refreshData()
-    diff = sub(target, self.data["pos"])
-    vel = self.data["vel"]
-    self.setAccel(angle(sub(vel, scale(2, perp(diff, vel)))), min(1, 0.1 + math.sqrt(squaredDistance(diff))/50))
-    
+    while squaredDistance(self.data["pos"], target) > 25: # and squaredDistance(self.data["pos"], target) < 500**2:
+      self.refreshData()
+      diff = sub(target, self.data["pos"])
+      vel = self.data["vel"]
+      #self.setAccel(angle(sub(vel, scale(2, perp(diff, vel)))), min(1, math.sqrt(squaredDistance(diff))/50))
+      self.setAccel(angle(add(neg(perp(diff, vel)), scale(1/math.sqrt(squaredDistance(diff)),diff))), 1)
 
 try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
     while True:
       p.refreshData()
       if len(p.data["mines"]) > 0:
-        p.waypoint(sub(p.data["pos"], p.data["mines"][0]))
+        p.waypoint(p.data["mines"][0])
       else:
-        p.setAccel(0.1, 1)
+        p.setAccel(0.3, 1)
         print('accelerating')
 except Exception as e:
   print("Error", str(e))
