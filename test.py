@@ -45,9 +45,9 @@ def norm(vec):
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
-    #self.toVisit = set()
+    self.stack = set()
     self.seen = set()
-    self.notOurs = set()
+    self.notOurs = dict()
     self.data = None
     
     self.HOST = HOST
@@ -93,7 +93,7 @@ class Player:
         next = (float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i])
         if arr[counter + 1 + 3*i] != self.USERNAME:
           processed["mines"].append(next)
-          self.notOurs.add(next[0:2])
+          self.notOurs[next[0:2]] = next[2]
         else:
           processed["ourmines"].append(next)
         self.seen.add(next[0:2])
@@ -164,21 +164,28 @@ class Player:
     print("Waypointing to ", target, " which is at angle ", angle(vecTo), " from me")
     while distance(vecTo) > self.config["CAPTURERADIUS"] and not self.isOurMine(target):
       self.refreshData()
+      #if len(p.seen) < 10:
+      #  if len(self.data["mines"]) > 0:
+      #    for mine in self.data["mines"]:
+      #      if (not self.isOurMine(mine)) and (distance(self.data["pos"], target) > 1.5 * distance(self.data["pos"], mine)):
+      #        self.stack.add(target)
+      #        target = mine
       vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
       self.setAccel(angle(add(neg(perp(vecTo, vel)), scale(1/distance(vecTo),vecTo))), 1)
-      #if len(self.data["mines"]) > 1:
-      #  for index, mine in enumerate(self.data["mines"]):
-      #    if index > 0 and not self.isOurMine(mine):
-      #      self.toVisit.add(mine)
-      #      self.seen.add(mine)
-      for mine in self.notOurs:
+      
+      #if len(p.seen) >= 10:
+      for mine in self.notOurs.keys():
         if distance(self.shortestVectorTo(mine)) * 1.5 < distance(vecTo): #if it's more than 1.5 times further than a nearer one, cancel.
           print("canceling waypoint")
           return
       if callback is not None:
         callback()
-    self.notOurs.discard(target[0:2])
+    self.notOurs.pop(target[0:2], None)
+    #if len(p.seen) < 10:
+    #  for targ in self.stack:
+    #    self.waypoint(targ, self.scanNextMine)
+    #    self.stack.discard(targ)
   
   def scanRandom(self):
     #self.exploringIndex
@@ -198,22 +205,31 @@ class Player:
       self.setAccel(0.3, 1)
     else:
       self.setAccel(angle(vel), 1)
-      
+
       bombdisp = scale((self.config["BOMBPLACERADIUS"])/math.sqrt(squaredDistance(vel)),vel)
       if len(self.data["mines"]) == 0:
         self.setBomb(add(self.data["pos"], bombdisp), 20)
-      
+
       self.scanRandom()
   
   def scanNextMine(self):
     if random.random() < len(self.seen)/35.0:
-      self.scanXY(random.choice(tuple(self.seen)))
+      m = random.choice(tuple(self.seen))
+      while 1000/distance(m, self.data["pos"]) < random.random(): # scanning needs to be weighted to be more likely for more nearby
+        m = random.choice(tuple(self.seen))
+      self.scanXY(m)
     else:
       self.scanRandom()
   
   def waypointToNearest(self):
     if len(self.notOurs) > 0:
-      self.waypoint(min(self.notOurs, key=lambda mine: squaredDistance(mine, self.data["pos"])), self.scanNextMine)
+      target = min(self.notOurs.keys(), key=lambda mine: squaredDistance(mine, self.data["pos"]) * (0.5 if self.notOurs[mine]=='exodia' else 1))
+      if distance(target, self.data["pos"]) > 2000:
+        diff = sub(target, self.data["pos"])
+        bombdisp = scale((self.config["BOMBPLACERADIUS"])/math.sqrt(squaredDistance(diff)),diff)
+        if len(self.data["mines"]) == 0:
+          self.setBomb(add(self.data["pos"], bombdisp), 20)
+      self.waypoint(target, self.scanNextMine)
     else:
       self.explore()
 
@@ -228,10 +244,9 @@ class Player:
 # to improve: waypoint cannot change if there's a much closer candidate
   # have some other heuristics like current velocity direction
   # and more prioritous enemies (higher rank)
-# scanning needs to be weighted to be more likely for more nearby
-# bombs
-# gradually decrease the scanNextMine probability of random one
 # recovery - cache in file
+# leave an area after hanging around too long - randomly boost self away?
+  # or unweight it if there's people nearby
 
 # toroidal is broken
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
