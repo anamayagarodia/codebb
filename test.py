@@ -5,10 +5,10 @@ import math
 import traceback
 
 
-#HOST, PORT = "codebb.cloudapp.net", 17429
-#USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
-HOST, PORT = "localhost", 17429
-USERNAME, PASSWORD = "a", "a"
+HOST, PORT = "codebb.cloudapp.net", 17429
+USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
+#HOST, PORT = "localhost", 17429
+#USERNAME, PASSWORD = "a", "a"
 
 """
 STATUS
@@ -45,7 +45,7 @@ def norm(vec):
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
-    self.toVisit = set()
+    #self.toVisit = set()
     self.seen = set()
     self.notOurs = set()
     self.data = None
@@ -69,7 +69,7 @@ class Player:
     return self.sock.recv(4096).decode("utf-8")
   def processData(self, response, isStatus = True):
     arr = response.split(' ')
-    print(arr)
+    #print(arr)
     
     processed = dict()
     if isStatus:
@@ -135,6 +135,9 @@ class Player:
     return False
   
   def shortestVectorTo(self, target):
+    offsets = [(0,0), (self.config["MAPWIDTH"],0), (0,self.config["MAPHEIGHT"]), (self.config["MAPWIDTH"],self.config["MAPHEIGHT"])]
+    
+    
     vec = sub(target, self.data["pos"])
     minLen = squaredDistance(vec)
     minVec = vec
@@ -164,15 +167,15 @@ class Player:
       vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
       self.setAccel(angle(add(neg(perp(vecTo, vel)), scale(1/distance(vecTo),vecTo))), 1)
-      if self.data["mines"] > 1:
-        for index, mine in enumerate(self.data["mines"]):
-          if index > 0 and not self.isOurMine(mine):
-            self.toVisit.add(mine)
-            self.seen.add(mine)
+      #if len(self.data["mines"]) > 1:
+      #  for index, mine in enumerate(self.data["mines"]):
+      #    if index > 0 and not self.isOurMine(mine):
+      #      self.toVisit.add(mine)
+      #      self.seen.add(mine)
       if callback is not None:
         callback()
     self.seen.add(target)
-    
+  
   def explore(self):
     vel = self.data["vel"]
     
@@ -184,6 +187,11 @@ class Player:
       bombdisp = scale((self.config["BOMBPLACERADIUS"]-1)/math.sqrt(squaredDistance(vel)),vel)
       # if math.sqrt(squaredDistance(vel)) <= 9.75:
       self.setBomb(add(self.data["pos"], bombdisp), self.config["BOMBPLACERADIUS"])
+      
+      #self.exploringIndex
+      #scanResults = 
+      #if scanResults != None:
+      #  add everything in scanResults["mines"] to self.seen
       
       scanCoords = add(scale(300, norm(self.data["vel"])), self.data["pos"])
       scanResults = self.scanXY(scanCoords)
@@ -210,6 +218,7 @@ class Player:
     # Greedily waypoint to the nearest mine that isn't ours.
     # Of course, exploration is still occurring, but we're just not prioritizing it.
 
+# toroidal is broken
 # allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
 # remember past points and check them at some point - after we hit a set number of "seen" bombs in the set (sortedset based on distance from current?)
 # if waypoint keep going
@@ -225,19 +234,20 @@ try:
     time.sleep(1)
     while True:
       p.refreshData()
-      print(math.sqrt(squaredDistance(p.data["vel"])))
+      #print(math.sqrt(squaredDistance(p.data["vel"])))
       if len(p.data["mines"]) > 0:
-        for index, mine in enumerate(p.data["mines"]):
-          if index < (len(p.data["mines"]) - 1):
-            p.toVisit.add(mine)
-          else:
-            p.waypoint(mine)
-        for mine in p.toVisit:
-          p.waypoint(mine)
-        p.toVisit = set()
+        p.waypoint(p.data["mines"][0])
+        #for index, mine in enumerate(p.data["mines"]):
+        #  if index < (len(p.data["mines"]) - 1):
+        #    p.toVisit.add(mine)
+        #  else:
+        #    p.waypoint(mine)
+        #for mine in p.toVisit:
+        #  p.waypoint(mine)
+        #p.toVisit = set()
       else:
         p.explore()
-      print(len(p.seen))
+      print(p.seen)
     while True:
       p.waypointToNearest()
 except Exception as e:
