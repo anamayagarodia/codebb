@@ -45,7 +45,7 @@ def norm(vec):
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
-    #self.toVisit = set()
+    self.stack = set()
     self.seen = set()
     self.notOurs = set()
     self.data = None
@@ -160,18 +160,21 @@ class Player:
     print("Waypointing to ", target, " which is at angle ", angle(vecTo), " from me")
     while distance(vecTo) > self.config["CAPTURERADIUS"] and not self.isOurMine(target):
       self.refreshData()
+      if len(self.data["mines"]) > 0:
+        for mine in self.data["mines"]:
+          if (not self.isOurMine(mine)) and (distance(self.data["pos"], target) > distance(self.data["pos"], mine)):
+            self.stack.add(target)
+            target = mine
       vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
       self.setAccel(angle(add(neg(perp(vecTo, vel)), scale(1/distance(vecTo),vecTo))), 1)
-      #if len(self.data["mines"]) > 1:
-      #  for index, mine in enumerate(self.data["mines"]):
-      #    if index > 0 and not self.isOurMine(mine):
-      #      self.toVisit.add(mine)
-      #      self.seen.add(mine)
       if callback is not None:
         callback()
     self.seen.add(target[0:2])
     self.notOurs.discard(target[0:2])
+    for targ in self.stack:
+      self.waypoint(targ, self.scanNextMine)
+      self.stack.discard(targ)
   
   def scanRandom(self):
     #self.exploringIndex
@@ -250,7 +253,7 @@ try:
         p.waypoint(p.data["mines"][0], p.scanRandom)
         #for index, mine in enumerate(p.data["mines"]):
         #  if index < (len(p.data["mines"]) - 1):
-        #    p.toVisit.add(mine)
+        #    p.stack.add(mine)
         #  else:
         #    p.waypoint(mine)
         #for mine in p.toVisit:
