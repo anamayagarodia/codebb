@@ -102,9 +102,15 @@ class Player:
     #requires delay: >=20 in frames where 1 frame = 25milsecond
     self.sendCommand("BOMB " + str(pos[0]) + " " + str(pos[1]) + " " + str(delay))
   
+  def isOurMine(self, minepos):
+    for mine in self.data["ourmines"]:
+      if minepos[0] == mine[0] and minepos[1] == mine[1]:
+        return True
+    return False
+  
   def waypoint(self, target): #fly through this point exactly. blocks until done.
     print("Waypointing to ", target)
-    while squaredDistance(self.data["pos"], target) > 25: # and squaredDistance(self.data["pos"], target) < 500**2:
+    while squaredDistance(self.data["pos"], target) > 25 and not isOurMine(target): # and squaredDistance(self.data["pos"], target) < 500**2:
       self.refreshData()
       diff = sub(target, self.data["pos"])
       vel = self.data["vel"]
@@ -118,6 +124,12 @@ class Player:
     print('Aye I''m moving')
     p.setBomb(add(p.data["pos"], bombdist), 20)
     print('YARRRRR')
+
+# toroidal angle to nearest
+# allow waypointing to other things on the way? not seeing anything while waypointing - have a queue
+# remember past points and check them at some point - maybe 10 min left? after it's explored "enough"
+# if waypoint keep going
+# bomb it if people are nearby (or leave a parting bomb)
 
 try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
