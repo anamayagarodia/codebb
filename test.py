@@ -2,6 +2,7 @@ import socket
 import sys
 import time
 import math
+import traceback
 
 
 HOST, PORT = "codebb.cloudapp.net", 17429
@@ -56,13 +57,15 @@ class Player:
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.connect((self.HOST, self.PORT))
     self.sock.send((self.USERNAME + ' ' + self.PASSWORD+'\n').encode())
-    print('hi')
+    response = self.sendCommand('CONFIGURATIONS')
+    arr = response.split(' ')[1:]
+    self.config = dict(zip(arr[0::2], [float(x.strip()) for x in arr[1::2]]))
     return self
   def __exit__(self, exc_type, exc_value, traceback):
     self.sock.close()
-  def sendCommand(self, str):
-    self.sock.send((str+'\n').encode())
-    return repr(self.sock.recv(4096))
+  def sendCommand(self, cmd):
+    self.sock.send((cmd+'\n').encode())
+    return self.sock.recv(4096).decode("utf-8")
   def processData(self, response, isStatus = True):
     arr = response.split(' ')
     print(arr)
@@ -135,17 +138,17 @@ class Player:
     minLen = squaredDistance(vec)
     minVec = vec
     
-    vec = sub(target, sub(self.data["pos"],(10000,0)))
+    vec = sub(target, sub(self.data["pos"],(self.config["MAPWIDTH"],0)))
     if squaredDistance(vec) < minLen:
       minLen = squaredDistance(vec)
       minVec = vec
     
-    vec = sub(target, sub(self.data["pos"],(0,10000)))
+    vec = sub(target, sub(self.data["pos"],(0,self.config["MAPHEIGHT"])))
     if squaredDistance(vec) < minLen:
       minLen = squaredDistance(vec)
       minVec = vec
     
-    vec = sub(target, sub(self.data["pos"],(10000,10000)))
+    vec = sub(target, sub(self.data["pos"],(self.config["MAPWIDTH"],self.config["MAPHEIGHT"])))
     if squaredDistance(vec) < minLen:
       minLen = squaredDistance(vec)
       minVec = vec
@@ -155,7 +158,7 @@ class Player:
   def waypoint(self, target, callback = None): # fly through this point exactly. blocks until done.
     vecTo = self.shortestVectorTo(target)
     print("Waypointing to ", target, " which is at angle ", angle(vecTo), " from me")
-    while squaredDistance(vecTo) > 25 and not self.isOurMine(target):
+    while distance(vecTo) > self.config["CAPTURERADIUS"] and not self.isOurMine(target):
       self.refreshData()
       vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
@@ -172,11 +175,11 @@ class Player:
     else:
       self.setAccel(angle(vel), 1)
       
-      bombdist = scale(50/math.sqrt(squaredDistance(vel)),vel)
-      if math.sqrt(squaredDistance(vel)) <= 9.75:
-        self.setBomb(add(self.data["pos"], bombdist), 20)
-        
-      scanCoords = add(scale(200, norm(self.data["vel"])), self.data["pos"])
+      bombdisp = scale((self.config["BOMBPLACERADIUS"]-1)/math.sqrt(squaredDistance(vel)),vel)
+      # if math.sqrt(squaredDistance(vel)) <= 9.75:
+      self.setBomb(add(self.data["pos"], bombdisp), self.config["BOMBPLACERADIUS"])
+      
+      scanCoords = add(scale(300, norm(self.data["vel"])), self.data["pos"])
       scanResults = self.scanXY(scanCoords)
       if scanResults != None and len(scanResults["mines"]) > 0:
         self.waypoint(scanResults["mines"][0])
@@ -190,7 +193,8 @@ class Player:
           self.notOurs.add(mine)
   
   def waypointToNearest(self):
-    waypoint(min(self.notOurs, key=lambda mine: squaredDistance(mine, self.data["pos"])), self.scanNextMine)
+    if len(self.notOurs) > 0:
+      waypoint(min(self.notOurs, key=lambda mine: squaredDistance(mine, self.data["pos"])), self.scanNextMine)
 
 # So memory.
   # We are going to explore the map in an optimal way (with motion and with scans).
@@ -221,8 +225,10 @@ try:
         p.waypoint(p.data["mines"][0])
       else:
         p.explore()
+      print(len(p.seen))
     while True:
       p.waypointToNearest()
 except Exception as e:
   print("Error", str(e))
+  traceback.print_exc()
 
