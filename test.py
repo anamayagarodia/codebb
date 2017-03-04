@@ -92,7 +92,7 @@ class Player:
       next = (float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i])
       if arr[counter + 1 + 3*i] != self.USERNAME:
         processed["mines"].append(next)
-        self.notOurs.add(next)
+        self.notOurs.add(next[0:2])
       else:
         processed["ourmines"].append(next)
       self.seen.add(next[0:2])
@@ -125,7 +125,7 @@ class Player:
   def scanXY(self, pos):
     response = self.sendCommand("SCAN " + str(pos[0]) + " " + str(pos[1]))
     if response.find("ERROR") == -1:
-      print('scan')
+      print('scan', len(self.seen))
       return self.processData(response, False)
     else:
       return None
@@ -171,6 +171,7 @@ class Player:
       if callback is not None:
         callback()
     self.seen.add(target[0:2])
+    self.notOurs.discard(target[0:2])
   
   def scanRandom(self):
     #self.exploringIndex
@@ -198,11 +199,10 @@ class Player:
       self.scanRandom()
   
   def scanNextMine(self):
-    scanResults = scanXY(random.choice(tuple(self.seen)))
-    if scanResults != None:
-      for mine in scanResults["mines"]:
-        if mine[2] != USERNAME:
-          self.notOurs.add(mine)
+    if random.randint(0,1) == 0:
+      self.scanXY(random.choice(tuple(self.seen)))
+    else:
+      self.scanRandom()
   
   def waypointToNearest(self):
     if len(self.notOurs) > 0:
@@ -232,7 +232,7 @@ try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
     p.setAccel(0.3, 1)
     time.sleep(1)
-    while len(p.seen) < 15:
+    while len(p.seen) < 10:
       p.refreshData()
       #print(math.sqrt(squaredDistance(p.data["vel"])))
       if len(p.data["mines"]) > 0:
@@ -247,7 +247,6 @@ try:
         #p.toVisit = set()
       else:
         p.explore()
-      print(len(p.seen))
     while True:
       p.waypointToNearest()
 except Exception as e:
