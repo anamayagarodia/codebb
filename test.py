@@ -3,7 +3,7 @@ import sys
 import time
 import math
 import traceback
-
+import random
 
 HOST, PORT = "codebb.cloudapp.net", 17429
 USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
@@ -92,9 +92,10 @@ class Player:
       next = (float(arr[counter + 2 + 3*i]), float(arr[counter + 3 + 3*i]), arr[counter + 1 + 3*i])
       if arr[counter + 1 + 3*i] != self.USERNAME:
         processed["mines"].append(next)
+        self.notOurs.add(next)
       else:
         processed["ourmines"].append(next)
-      self.seen.add(next)
+      self.seen.add(next[0:2])
     
     counter += 2 + 3 * nummines
     numplayers = int(arr[counter])
@@ -124,6 +125,7 @@ class Player:
   def scanXY(self, pos):
     response = self.sendCommand("SCAN " + str(pos[0]) + " " + str(pos[1]))
     if response.find("ERROR") == -1:
+      print('scan')
       return self.processData(response, False)
     else:
       return None
@@ -135,27 +137,21 @@ class Player:
     return False
   
   def shortestVectorTo(self, target):
-    offsets = [(0,0), (self.config["MAPWIDTH"],0), (0,self.config["MAPHEIGHT"]), (self.config["MAPWIDTH"],self.config["MAPHEIGHT"])]
-    
+    offsets = [(self.config["MAPWIDTH"],0), (0,self.config["MAPHEIGHT"]), (self.config["MAPWIDTH"],self.config["MAPHEIGHT"])]
     
     vec = sub(target, self.data["pos"])
     minLen = squaredDistance(vec)
     minVec = vec
     
-    vec = sub(target, sub(self.data["pos"],(self.config["MAPWIDTH"],0)))
-    if squaredDistance(vec) < minLen:
-      minLen = squaredDistance(vec)
-      minVec = vec
-    
-    vec = sub(target, sub(self.data["pos"],(0,self.config["MAPHEIGHT"])))
-    if squaredDistance(vec) < minLen:
-      minLen = squaredDistance(vec)
-      minVec = vec
-    
-    vec = sub(target, sub(self.data["pos"],(self.config["MAPWIDTH"],self.config["MAPHEIGHT"])))
-    if squaredDistance(vec) < minLen:
-      minLen = squaredDistance(vec)
-      minVec = vec
+    for offset in offsets:
+      vec = sub(target, sub(self.data["pos"], offset))
+      if squaredDistance(vec) < minLen:
+        minLen = squaredDistance(vec)
+        minVec = vec
+      vec = sub(target, sub(self.data["pos"], neg(offset)))
+      if squaredDistance(vec) < minLen:
+        minLen = squaredDistance(vec)
+        minVec = vec
     
     return minVec
   
@@ -174,7 +170,18 @@ class Player:
       #      self.seen.add(mine)
       if callback is not None:
         callback()
-    self.seen.add(target)
+    self.seen.add(target[0:2])
+  
+  def scanRandom(self):
+    #self.exploringIndex
+    #scanResults = 
+    #if scanResults != None:
+    #  add everything in scanResults["mines"] to self.seen
+    
+    self.scanXY((random.random() * self.config["MAPWIDTH"], random.random() * self.config["MAPHEIGHT"])) # add(scale(300, norm(self.data["vel"])), self.data["pos"])
+    
+    #if scanResults != None and len(scanResults["mines"]) > 0:
+    #  self.waypoint(scanResults["mines"][0])
   
   def explore(self):
     vel = self.data["vel"]
@@ -184,31 +191,24 @@ class Player:
     else:
       self.setAccel(angle(vel), 1)
       
-      bombdisp = scale((self.config["BOMBPLACERADIUS"]-1)/math.sqrt(squaredDistance(vel)),vel)
-      # if math.sqrt(squaredDistance(vel)) <= 9.75:
-      self.setBomb(add(self.data["pos"], bombdisp), self.config["BOMBPLACERADIUS"])
+      bombdisp = scale((self.config["BOMBPLACERADIUS"])/math.sqrt(squaredDistance(vel)),vel)
+      if len(self.data["mines"]) == 0:
+        self.setBomb(add(self.data["pos"], bombdisp), 20)
       
-      #self.exploringIndex
-      #scanResults = 
-      #if scanResults != None:
-      #  add everything in scanResults["mines"] to self.seen
-      
-      scanCoords = add(scale(300, norm(self.data["vel"])), self.data["pos"])
-      scanResults = self.scanXY(scanCoords)
-      if scanResults != None and len(scanResults["mines"]) > 0:
-        self.waypoint(scanResults["mines"][0])
+      self.scanRandom()
   
   def scanNextMine(self):
     scanResults = scanXY(random.choice(tuple(self.seen)))
     if scanResults != None:
       for mine in scanResults["mines"]:
-        self.seen.add(mine)
         if mine[2] != USERNAME:
           self.notOurs.add(mine)
   
   def waypointToNearest(self):
     if len(self.notOurs) > 0:
-      waypoint(min(self.notOurs, key=lambda mine: squaredDistance(mine, self.data["pos"])), self.scanNextMine)
+      self.waypoint(min(self.notOurs, key=lambda mine: squaredDistance(mine, self.data["pos"])), self.scanNextMine)
+    else:
+      self.explore()
 
 # So memory.
   # We are going to explore the map in an optimal way (with motion and with scans).
@@ -232,11 +232,11 @@ try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
     p.setAccel(0.3, 1)
     time.sleep(1)
-    while True:
+    while len(p.seen) < 15:
       p.refreshData()
       #print(math.sqrt(squaredDistance(p.data["vel"])))
       if len(p.data["mines"]) > 0:
-        p.waypoint(p.data["mines"][0])
+        p.waypoint(p.data["mines"][0], p.scanRandom)
         #for index, mine in enumerate(p.data["mines"]):
         #  if index < (len(p.data["mines"]) - 1):
         #    p.toVisit.add(mine)
@@ -247,7 +247,7 @@ try:
         #p.toVisit = set()
       else:
         p.explore()
-      print(p.seen)
+      print(len(p.seen))
     while True:
       p.waypointToNearest()
 except Exception as e:
