@@ -44,9 +44,10 @@ def norm(vec):
 
 class Player:
   def __init__(self, HOST, PORT, USERNAME, PASSWORD):
-    self.visited = set()
+    self.seen = set()
+    self.notOurs = set()
     self.data = None
-    self.rawData = None
+    
     self.HOST = HOST
     self.PORT = PORT
     self.USERNAME = USERNAME
@@ -65,8 +66,6 @@ class Player:
   def processData(self, response, isStatus = True):
     arr = response.split(' ')
     print(arr)
-    
-    self.rawData = arr
     
     processed = dict()
     if isStatus:
@@ -91,7 +90,7 @@ class Player:
         processed["mines"].append(next)
       else:
         processed["ourmines"].append(next)
-      self.visited.add(next)
+      self.seen.add(next)
     
     counter += 2 + 3 * nummines
     numplayers = int(arr[counter])
@@ -153,7 +152,7 @@ class Player:
     
     return minVec
   
-  def waypoint(self, target): # fly through this point exactly. blocks until done.
+  def waypoint(self, target, callback = None): # fly through this point exactly. blocks until done.
     vecTo = self.shortestVectorTo(target)
     print("Waypointing to ", target, " which is at angle ", angle(vecTo), " from me")
     while squaredDistance(vecTo) > 25 and not self.isOurMine(target):
@@ -161,9 +160,11 @@ class Player:
       vecTo = self.shortestVectorTo(target)
       vel = self.data["vel"]
       self.setAccel(angle(add(neg(perp(vecTo, vel)), scale(1/distance(vecTo),vecTo))), 1)
-    self.visited.add(target)
+      if callback is not None:
+        callback()
+    self.seen.add(target)
   
-  def bombAccel(self):
+  def explore(self):
     vel = self.data["vel"]
     
     if(distance(vel) == 0):
@@ -179,10 +180,21 @@ class Player:
       scanResults = self.scanXY(scanCoords)
       if scanResults != None and len(scanResults["mines"]) > 0:
         self.waypoint(scanResults["mines"][0])
+  
+  def scanNextMine(self):
+    scanResults = scanXY(random.choice(tuple(self.seen)))
+    if scanResults != None:
+      for mine in scanResults["mines"]:
+        self.seen.add(mine)
+        if mine[2] != USERNAME:
+          self.notOurs.add(mine)
+  
+  def waypointToNearest(self):
+    waypoint(min(self.notOurs, key=lambda mine: squaredDistance(mine, self.data["pos"])), self.scanNextMine)
 
 # So memory.
   # We are going to explore the map in an optimal way (with motion and with scans).
-    # The goal is to find 75% of the existing mines.
+    # The goal is to explore 80% of the area of the field.
   # Once this occurs, we switch to a strategy of circulation.
     # Scan each known location (in continuous linear sequence) to figure out if the mine is still ours. Add to a list if not.
     # Greedily waypoint to the nearest mine that isn't ours.
@@ -208,7 +220,9 @@ try:
       if len(p.data["mines"]) > 0:
         p.waypoint(p.data["mines"][0])
       else:
-        p.bombAccel()
+        p.explore()
+    while True:
+      p.waypointToNearest()
 except Exception as e:
   print("Error", str(e))
 
