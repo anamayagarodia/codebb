@@ -4,10 +4,10 @@ import time
 import math
 
 
-HOST, PORT = "codebb.cloudapp.net", 17429
-USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
-#HOST, PORT = "10.20.42.146", 17429
-#USERNAME, PASSWORD = "b", "b"
+#HOST, PORT = "codebb.cloudapp.net", 17429
+#USERNAME, PASSWORD = "duckduckgoose", "goosegooseduck"
+HOST, PORT = "localhost", 17429
+USERNAME, PASSWORD = "a", "a"
 
 """
 STATUS
@@ -47,19 +47,20 @@ class Player:
     self.PORT = PORT
     self.USERNAME = USERNAME
     self.PASSWORD = PASSWORD
-    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   def __enter__(self):
+    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.connect((self.HOST, self.PORT))
     self.sendCommand(self.USERNAME + ' ' + self.PASSWORD)
+    print('hi')
     return self
   def __exit__(self, exc_type, exc_value, traceback):
     self.sock.close()
   def sendCommand(self, str):
     self.sock.send((str+'\n').encode())
+    return repr(self.sock.recv(4096))
   def refreshData(self):
-    self.sendCommand('STATUS')
-    data = self.sock.recv(4096)
-    arr = repr(data).split(' ')
+    data = self.sendCommand('STATUS')
+    arr = data.split(' ')
     
     self.rawData = arr
     
@@ -100,6 +101,7 @@ class Player:
     diff = sub(target, self.data["pos"])
     vel = self.data["vel"]
     self.setAccel(angle(sub(vel, scale(2, perp(diff, vel)))), min(1, 0.1 + math.sqrt(squaredDistance(diff))/50))
+    
 
 try:
   with Player(HOST, PORT, USERNAME, PASSWORD) as p:
@@ -109,5 +111,6 @@ try:
         p.waypoint(sub(p.data["pos"], p.data["mines"][0]))
       else:
         p.setAccel(0.1, 1)
+        print('accelerating')
 except Exception as e:
   print("Error", str(e))
